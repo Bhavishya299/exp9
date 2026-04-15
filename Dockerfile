@@ -1,42 +1,17 @@
-name: React CI/CD Pipeline
+FROM node:18-alpine AS builder
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+WORKDIR /app
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+COPY package.json package-lock.json ./
+RUN npm install
 
-    defaults:
-      run:
-        working-directory: ./client        # ← THIS is the fix
+COPY . .
+RUN npm run build
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+FROM nginx:alpine
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+COPY --from=builder /app/build /usr/share/nginx/html
 
-      - name: Install dependencies
-        run: npm install
+EXPOSE 80
 
-      - name: Build React app
-        run: npm run build
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/exp9-react-app:latest .
-
-      - name: Push Docker image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/exp9-react-app:latest
+CMD ["nginx", "-g", "daemon off;"]
